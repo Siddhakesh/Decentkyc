@@ -1,0 +1,19 @@
+# Common Git Ignores
+node_modules/
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+.ds_store
+dist/
+build/
+artifacts/
+cache/
+.ipynb_checkpoints/
+*.db
+*.sqlite
+.DS_Store
+.vscode/
+.idea/
+*.log

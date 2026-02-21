@@ -1,0 +1,98 @@
+# ══════════════════════════════════════════════════════════════
+#  Decentralized KYC — Docker Compose
+# ══════════════════════════════════════════════════════════════
+#
+# Services:
+#   hardhat-node  — Local Ethereum blockchain (Hardhat Network)
+#   ipfs          — Kubo IPFS node (local off-chain storage)
+#   backend       — FastAPI application
+#   frontend      — React (Vite) application
+#
+# Usage:
+#   cp .env.example .env        # Fill in secrets
+#   docker-compose up --build   # Start all services
+
+version: "3.9"
+
+services:
+
+  # ── 1. Local Ethereum Node (Hardhat) ────────────────────────
+  hardhat-node:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - hardhat_cache:/app/cache
+      - hardhat_artifacts:/app/artifacts
+    ports:
+      - "8545:8545"
+    command: sh -c "npm install && npx hardhat node --hostname 0.0.0.0"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8545"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 2. IPFS Node (Kubo) ─────────────────────────────────────
+  ipfs:
+    image: ipfs/kubo:latest
+    ports:
+      - "4001:4001"    # Swarm
+      - "5001:5001"    # API
+      - "8080:8080"    # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── 3. FastAPI Backend ───────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - BLOCKCHAIN_RPC_URL=http://hardhat-node:8545
+      - IPFS_API_URL=http://ipfs:5001
+    depends_on:
+      hardhat-node:
+        condition: service_healthy
+      ipfs:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app        # Hot reload in development
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── 4. React Frontend ────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_CHAIN_ID=1337
+    depends_on:
+      backend:
+        condition: service_healthy
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+# ── Volumes ──────────────────────────────────────────────────
+volumes:
+  ipfs_data:
+  hardhat_cache:
+  hardhat_artifacts:
