@@ -63,6 +63,11 @@ class User(Base):
     full_name      = Column(String, nullable=True)
     role           = Column(Enum(UserRole), nullable=False, default=UserRole.user)
     wallet_address = Column(String, nullable=True, index=True)  # Ethereum address
+    
+    # ── Bank Marketplace Metadata ────────────────────────────────────────────
+    description    = Column(Text, nullable=True)                # Profile bio
+    services       = Column(String, nullable=True)              # Comma-separated or JSON list
+    
     is_active      = Column(Boolean, default=True)
     created_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

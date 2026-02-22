@@ -31,6 +31,8 @@ class UserCreate(BaseModel):
     full_name: Optional[str] = Field(None, max_length=200)
     role: UserRole = UserRole.user
     wallet_address: Optional[str] = Field(None, pattern=r"^0x[a-fA-F0-9]{40}$")
+    description: Optional[str] = Field(None, max_length=1000)
+    services: Optional[str] = Field(None, max_length=500)
 
     @field_validator("password")
     @classmethod
@@ -53,6 +55,8 @@ class UserOut(BaseModel):
     full_name: Optional[str]
     role: UserRole
     wallet_address: Optional[str]
+    description: Optional[str]
+    services: Optional[str]
     is_active: bool
     created_at: datetime
 

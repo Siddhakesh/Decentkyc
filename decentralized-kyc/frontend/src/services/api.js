@@ -47,6 +47,7 @@ export default api;
 export const authService = {
     register: (data) => api.post('/auth/register', data),
     login: (data) => api.post('/auth/login', data),
+    getBanks: () => api.get('/auth/banks'),
 };
 
 export const kycService = {
@@ -60,6 +61,8 @@ export const consentService = {
     grantAccess: (data) => api.post('/consent/grant-access', data),
     revokeAccess: (data) => api.post('/consent/revoke-access', data),
     getPending: () => api.get('/consent/pending'),
+    getGrantedList: () => api.get('/consent/granted-list'),
+    viewKycData: (address) => api.get(`/consent/view/${address}`),
 };
 
 export const auditService = {

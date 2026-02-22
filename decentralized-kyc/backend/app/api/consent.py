@@ -270,4 +270,88 @@ async def get_pending_requests(
             "bank_email": bank.email if bank else "Unknown",
             "requested_at": r.requested_at,
         })
+@router.get("/granted-list")
+async def get_granted_accesses(
+    current_user: User = Depends(require_bank),
+    db: Session = Depends(get_db),
+):
+    """List all users who have granted KYC access to this bank."""
+    consents = db.query(ConsentRecord).filter(
+        ConsentRecord.bank_id == current_user.id,
+        ConsentRecord.status == ConsentStatus.granted,
+    ).all()
+
+    result = []
+    for c in consents:
+        u = db.query(User).filter(User.id == c.user_id).first()
+        if u:
+            result.append({
+                "user_wallet_address": u.wallet_address,
+                "user_full_name": u.full_name,
+                "granted_at": c.granted_at,
+                "tx_hash": c.tx_hash,
+            })
     return result
+
+
+@router.get("/view/{user_wallet_address}")
+async def view_user_kyc(
+    user_wallet_address: str,
+    request: Request,
+    current_user: User = Depends(require_bank),
+    db: Session = Depends(get_db),
+):
+    """
+    Allows a bank to view the decrypted KYC data of a user.
+    ONLY works if the user has GRANTED access.
+    """
+    # 1. Find the target user
+    target_user = db.query(User).filter(
+        User.wallet_address == user_wallet_address,
+        User.role == "user",
+    ).first()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="User wallet address not found")
+
+    # 2. Verify active consent
+    consent = db.query(ConsentRecord).filter(
+        ConsentRecord.user_id == target_user.id,
+        ConsentRecord.bank_id == current_user.id,
+        ConsentRecord.status == ConsentStatus.granted,
+    ).first()
+
+    if not consent:
+        raise HTTPException(
+            status_code=403, 
+            detail="Access Denied. User has not granted you active consent."
+        )
+
+    # 3. Fetch and decrypt the KYC record
+    kyc = db.query(KYCRecord).filter(KYCRecord.user_id == target_user.id).first()
+    if not kyc:
+        raise HTTPException(status_code=404, detail="KYC record not found for this user")
+
+    # Audit the access event
+    db.add(AuditLog(
+        id=str(uuid.uuid4()),
+        actor_id=current_user.id,
+        target_user_id=target_user.id,
+        event_type=AuditEventType.access_history,
+        ip_address=request.client.host if request.client else None,
+        details=f"Bank '{current_user.email}' accessed decrypted KYC data",
+    ))
+    db.commit()
+
+    # In a real system, the bank would decrypt locally using a shared key.
+    # For this demo, we return the data from the server.
+    return {
+        "full_name": target_user.full_name,
+        "email": target_user.email,
+        "wallet_address": target_user.wallet_address,
+        "kyc_status": kyc.status,
+        "id_type": kyc.id_type,
+        "id_number": kyc.id_number,
+        "liveness_score": kyc.liveness_score,
+        "last_verified": kyc.updated_at,
+        "document_cid": kyc.ipfs_cid,
+    }

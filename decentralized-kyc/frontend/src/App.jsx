@@ -14,6 +14,7 @@ import AccessHistory from './components/AccessHistory';
 import BankPortal from './components/BankPortal';
 import Dashboard from './components/Dashboard';
 import LivenessCheck from './components/LivenessCheck';
+import Marketplace from './components/Marketplace';
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
 class ErrorBoundary extends Component {
@@ -52,6 +53,7 @@ class ErrorBoundary extends Component {
 const NAV = {
     user: [
         { id: 'dashboard', icon: '⬡', label: 'Dashboard' },
+        { id: 'marketplace', icon: '🏪', label: 'Marketplace' },
         { id: 'upload', icon: '📄', label: 'Upload KYC' },
         { id: 'liveness', icon: '📸', label: 'Liveness Check' },
         { id: 'consent', icon: '🔓', label: 'Consent Requests' },
@@ -100,6 +102,7 @@ export default function App() {
                 case 'consent': return <ErrorBoundary><ConsentApproval /></ErrorBoundary>;
                 case 'history': return <ErrorBoundary><AccessHistory /></ErrorBoundary>;
                 case 'portal': return <ErrorBoundary><BankPortal /></ErrorBoundary>;
+                case 'marketplace': return <ErrorBoundary><Marketplace /></ErrorBoundary>;
                 case 'dashboard': return <ErrorBoundary><Dashboard user={user} /></ErrorBoundary>;
                 default:
                     console.warn(`[App] Unknown page: ${effectivePage}, falling back to dashboard`);

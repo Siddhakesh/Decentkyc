@@ -46,6 +46,8 @@ async def register_user(user_in: UserCreate, request: Request, db: Session = Dep
         full_name=user_in.full_name,
         role=user_in.role,
         wallet_address=user_in.wallet_address,
+        description=user_in.description,
+        services=user_in.services,
     )
     db.add(new_user)
 
@@ -92,6 +94,12 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
         wallet_address=user.wallet_address,
     )
     return Token(access_token=token, role=user.role)
+
+
+@router.get("/banks", response_model=List[UserOut])
+async def list_banks(db: Session = Depends(get_db)):
+    """List all registered financial institutions for the marketplace."""
+    return db.query(User).filter(User.role == "bank", User.is_active == True).all()
 
 
 @router.get("/me", response_model=UserOut)

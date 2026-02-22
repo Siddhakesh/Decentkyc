@@ -21,6 +21,8 @@ export default function WalletLogin({ onSuccess }) {
         full_name: '',
         role: 'user', // Default role
         wallet_address: '',
+        description: '',
+        services: '',
     });
 
     const handleSubmit = async (e) => {
@@ -68,34 +70,50 @@ export default function WalletLogin({ onSuccess }) {
             padding: '1rem'
         }}>
             <div className="card animate-in" style={{ width: '100%', maxWidth: '440px', padding: '2.5rem' }}>
+                {/* Role Toggle at the top */}
+                <div style={{
+                    display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '12px',
+                    padding: '4px', marginBottom: '2rem', border: '1px solid var(--border-glass)'
+                }}>
+                    <button
+                        onClick={() => setForm({ ...form, role: 'user' })}
+                        style={{
+                            flex: 1, padding: '0.6rem', border: 'none', borderRadius: '8px',
+                            background: form.role === 'user' ? 'var(--grad-premium)' : 'transparent',
+                            color: 'white', fontWeight: 600, cursor: 'pointer', transition: 'all 0.3s'
+                        }}
+                    >
+                        Individual
+                    </button>
+                    <button
+                        onClick={() => setForm({ ...form, role: 'bank' })}
+                        style={{
+                            flex: 1, padding: '0.6rem', border: 'none', borderRadius: '8px',
+                            background: form.role === 'bank' ? 'var(--grad-premium)' : 'transparent',
+                            color: 'white', fontWeight: 600, cursor: 'pointer', transition: 'all 0.3s'
+                        }}
+                    >
+                        Institution
+                    </button>
+                </div>
+
                 <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    <div className="logo-icon" style={{ margin: '0 auto 1rem' }}>🔐</div>
+                    <div className="logo-icon" style={{ margin: '0 auto 1rem' }}>
+                        {form.role === 'bank' ? '🏦' : '🔐'}
+                    </div>
                     <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>
-                        {mode === 'login' ? 'Sign In' : 'Create Account'}
+                        {form.role === 'bank' ? 'Bank Portal' : (mode === 'login' ? 'Sign In' : 'Create Account')}
                     </h2>
                     <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                        {mode === 'login'
-                            ? 'Access your decentralized identity portal'
-                            : 'Join the zero-trust KYC revolution'}
+                        {form.role === 'bank'
+                            ? 'Institutional access for KYC verification'
+                            : (mode === 'login' ? 'Access your decentralized identity portal' : 'Join the zero-trust KYC revolution')}
                     </p>
                 </div>
 
                 <form onSubmit={handleSubmit}>
                     {mode === 'register' && (
                         <>
-                            <div className="form-group">
-                                <label>What best describes you?</label>
-                                <select
-                                    className="input"
-                                    value={form.role}
-                                    onChange={e => setForm({ ...form, role: e.target.value })}
-                                    style={{ marginBottom: '1rem' }}
-                                >
-                                    <option value="user">I am an Individual (User)</option>
-                                    <option value="bank">I am a Financial Institution (Bank)</option>
-                                </select>
-                            </div>
-
                             <div className="form-group">
                                 <label>{form.role === 'bank' ? 'Institution Name' : 'Full Name'}</label>
                                 <input
@@ -107,6 +125,30 @@ export default function WalletLogin({ onSuccess }) {
                                     onChange={e => setForm({ ...form, full_name: e.target.value })}
                                 />
                             </div>
+                            {form.role === 'bank' && (
+                                <>
+                                    <div className="form-group">
+                                        <label>Institution Description</label>
+                                        <textarea
+                                            className="input"
+                                            placeholder="Briefly describe your institution's focus..."
+                                            style={{ minHeight: '80px', paddingTop: '0.8rem' }}
+                                            value={form.description || ''}
+                                            onChange={e => setForm({ ...form, description: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Services Provided (comma-separated)</label>
+                                        <input
+                                            className="input"
+                                            type="text"
+                                            placeholder="e.g. Personal Banking, Home Loans, Crypto Assets"
+                                            value={form.services || ''}
+                                            onChange={e => setForm({ ...form, services: e.target.value })}
+                                        />
+                                    </div>
+                                </>
+                            )}
                         </>
                     )}
 
