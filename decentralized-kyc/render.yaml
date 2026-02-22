@@ -1,0 +1,35 @@
+# render.yaml — Render.com deployment config
+# Docs: https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: decentralized-kyc-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    envVars:
+      - key: JWT_SECRET_KEY
+        generateValue: true        # Render auto-generates a secure random value
+      - key: AES_ENCRYPTION_KEY
+        generateValue: true
+      - key: CORS_ALLOW_ALL
+        value: "true"              # Allow all origins; restrict after Vercel deploy URL is known
+      - key: EXTRA_ORIGINS
+        value: ""                  # Set to https://your-app.vercel.app after deploy
+      - key: DATABASE_URL
+        value: "sqlite:///./kyc.db"
+      - key: BLOCKCHAIN_RPC_URL
+        value: "http://localhost:8545"   # Local — blockchain calls will be degraded; update for Sepolia
+      - key: KYC_CONTRACT_ADDRESS
+        value: ""
+      - key: DEPLOYER_PRIVATE_KEY
+        value: ""
+      - key: IPFS_API_URL
+        value: "http://localhost:5001"   # Update to Pinata if available
+      - key: DEBUG
+        value: "false"
+    disk:
+      name: kyc-data
+      mountPath: /app
+      sizeGB: 1

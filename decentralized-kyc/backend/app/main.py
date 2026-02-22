@@ -80,10 +80,14 @@ A production-grade, blockchain-anchored Know Your Customer platform.
 )
 
 # ── CORS ──────────────────────────────────────────────────────────────────────
+_cors_origins = settings.ALLOWED_ORIGINS.copy()
+if settings.EXTRA_ORIGINS:
+    _cors_origins += [o.strip() for o in settings.EXTRA_ORIGINS.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"] if settings.CORS_ALLOW_ALL else _cors_origins,
+    allow_credentials=not settings.CORS_ALLOW_ALL,   # credentials not allowed with wildcard
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )

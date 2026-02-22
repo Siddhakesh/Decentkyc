@@ -17,12 +17,15 @@ class Settings(BaseSettings):
     APP_NAME: str = "Decentralized KYC"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
+    CORS_ALLOW_ALL: bool = False         # Set True in dev/Render if origins vary
     ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000", 
+        "http://localhost:3000",
         "http://localhost:5173",
         "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173"
+        "http://127.0.0.1:5173",
     ]
+    # Extra Vercel/custom domains added at runtime via EXTRA_ORIGINS env var:
+    EXTRA_ORIGINS: str = ""              # comma-separated, e.g. "https://kyc.vercel.app"
 
     # ── Database ─────────────────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite:///./kyc.db"       # Swap to postgres:// in prod
