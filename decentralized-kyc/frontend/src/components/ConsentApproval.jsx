@@ -43,8 +43,8 @@ export default function ConsentApproval() {
             if (!signature) throw new Error("Signature rejected by user");
 
             await consentService.grantAccess({
-                bank_id: req.consent_id,
-                bank_wallet_address: req.bank_wallet_address || "0x0000000000000000000000000000000000000000", // Fallback for POC
+                bank_id: req.consent_id,                                           // consent record UUID
+                bank_wallet_address: req.bank_wallet_address || "0xDEMO_BANK",    // bank's wallet
                 consent_message: message,
                 signature: signature
             });
@@ -52,7 +52,8 @@ export default function ConsentApproval() {
             toast.success('Consent Granted & Signed! 🔓', { id: 'consent-tx' });
             fetchRequests();
         } catch (err) {
-            toast.error(err.message || "Granting consent failed", { id: 'consent-tx' });
+            const detail = err.response?.data?.detail || err.message || "Granting consent failed";
+            toast.error(detail, { id: 'consent-tx' });
         }
     };
 
@@ -102,9 +103,26 @@ export default function ConsentApproval() {
                             </div>
 
                             <h3 style={{ fontSize: '1.25rem' }}>{req.bank_name}</h3>
-                            <p style={{ fontSize: '0.85rem', marginBottom: '1.5rem' }}>{req.bank_email}</p>
+                            <p style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{req.bank_email}</p>
 
-                            <div style={{ marginBottom: '2rem', padding: '1rem', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)' }}>
+                            {/* Bank document request alert */}
+                            {req.doc_request_message && (
+                                <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '10px', background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.35)' }}>
+                                    <p style={{ fontSize: '0.72rem', color: '#facc15', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>📨 Bank Requests Additional Documents</p>
+                                    <p style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{req.doc_request_message}</p>
+                                    <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '6px' }}>Please go to <strong>Upload KYC</strong> to submit the requested document.</p>
+                                </div>
+                            )}
+
+                            {/* Bank rejection alert */}
+                            {req.bank_decision === 'rejected' && (
+                                <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', borderRadius: '10px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.35)' }}>
+                                    <p style={{ fontSize: '0.72rem', color: '#ef4444', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>❌ KYC Rejected by Bank</p>
+                                    {req.rejection_reason && <p style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>{req.rejection_reason}</p>}
+                                </div>
+                            )}
+
+                            <div style={{ marginBottom: '1.5rem', padding: '1rem', borderRadius: 'var(--radius-md)', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)' }}>
                                 <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Scope of Access</p>
                                 <p style={{ fontSize: '0.8rem', color: 'var(--text-primary)', marginTop: '4px' }}>
                                     Read access to Encrypted Identity Document (Passport/ID).

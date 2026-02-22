@@ -108,6 +108,15 @@ class ConsentRecord(Base):
     revoked_at     = Column(DateTime, nullable=True)
     signature      = Column(Text, nullable=True)                # User's Ethereum signature
 
+    # ── Bank Decision Fields ──────────────────────────────────────────────────
+    bank_decision  = Column(String, nullable=True)              # 'accepted' | 'rejected' | None
+    rejection_reason = Column(Text, nullable=True)              # Note from bank on rejection
+    decided_at     = Column(DateTime, nullable=True)            # When bank made the decision
+
+    # ── Additional Document Request ──────────────────────────────────────────
+    doc_request_message = Column(Text, nullable=True)           # Bank's message to user
+    doc_request_at   = Column(DateTime, nullable=True)          # When request was sent
+
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"

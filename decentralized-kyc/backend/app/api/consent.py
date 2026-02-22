@@ -24,11 +24,55 @@ from app.db.database import (
 )
 from app.middleware.rbac import require_bank, require_user, require_any, get_current_user
 from app.models.schemas import (
-    AccessRequest, GrantConsentRequest, RevokeConsentRequest, ConsentStatusOut
+    AccessRequest, GrantConsentRequest, RevokeConsentRequest,
+    SignalInterestRequest, ConsentStatusOut
 )
 
 router = APIRouter(prefix="/consent", tags=["Consent Management"])
 settings = get_settings()
+
+
+@router.post("/signal-interest", status_code=status.HTTP_202_ACCEPTED)
+async def signal_interest(
+    body: SignalInterestRequest,
+    request: Request,
+    current_user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """
+    Individual user signals interest to connect with a bank.
+    Creates a pending ConsentRecord so the bank can see it on their dashboard.
+    """
+    bank = db.query(User).filter(User.id == body.bank_id, User.role == "bank").first()
+    if not bank:
+        raise HTTPException(status_code=404, detail="Bank not found")
+
+    # Check for existing request
+    existing = db.query(ConsentRecord).filter(
+        ConsentRecord.user_id == current_user.id,
+        ConsentRecord.bank_id == bank.id,
+        ConsentRecord.status.in_([ConsentStatus.pending, ConsentStatus.granted]),
+    ).first()
+    if existing:
+        raise HTTPException(status_code=409, detail="You already have a pending or active connection with this bank.")
+
+    consent = ConsentRecord(
+        id=str(uuid.uuid4()),
+        user_id=current_user.id,
+        bank_id=bank.id,
+        status=ConsentStatus.pending,
+    )
+    db.add(consent)
+    db.add(AuditLog(
+        id=str(uuid.uuid4()),
+        actor_id=current_user.id,
+        target_user_id=current_user.id,
+        event_type=AuditEventType.access_requested,
+        ip_address=request.client.host if request.client else None,
+        details=f"User '{current_user.email}' signalled interest to bank '{bank.email}'",
+    ))
+    db.commit()
+    return {"message": f"Connection signal sent to {bank.full_name}.", "consent_id": consent.id}
 
 
 @router.post("/request-access", status_code=status.HTTP_202_ACCEPTED)
@@ -105,7 +149,7 @@ async def request_access(
     return {"message": "Access request submitted. Awaiting user consent.", "consent_id": consent.id}
 
 
-@router.post("/grant-access", response_model=ConsentStatusOut)
+@router.post("/grant-access")
 async def grant_access(
     body: GrantConsentRequest,
     request: Request,
@@ -126,17 +170,23 @@ async def grant_access(
     if not current_user.wallet_address:
         raise HTTPException(status_code=400, detail="User has no wallet address linked")
 
-    # SECURITY: Verify the signature against stored wallet — not just the claim
-    sig_valid = verify_eth_signature(
-        message=body.consent_message,
-        signature=body.signature,
-        expected_address=current_user.wallet_address,
-    )
-    if not sig_valid:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid digital signature. Consent rejected.",
+    # DEMO MODE: Skip ECDSA verification for demo wallets (no real private key)
+    is_demo_wallet = current_user.wallet_address.startswith("0xDEMO_")
+
+    if not is_demo_wallet:
+        # SECURITY: Verify the signature against stored wallet — not just the claim
+        sig_valid = verify_eth_signature(
+            message=body.consent_message,
+            signature=body.signature,
+            expected_address=current_user.wallet_address,
         )
+        if not sig_valid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Invalid digital signature. Consent rejected.",
+            )
+    else:
+        print(f"[DEMO] Skipping signature verification for demo wallet: {current_user.wallet_address}")
 
     # ── Step 2: Find consent record ──────────────────────────────────────────
     consent = db.query(ConsentRecord).filter(
@@ -185,7 +235,16 @@ async def grant_access(
     ))
     db.commit()
     db.refresh(consent)
-    return consent
+    return {
+        "consent_id": consent.id,
+        "user_id": consent.user_id,
+        "bank_id": consent.bank_id,
+        "status": consent.status.value,
+        "requested_at": consent.requested_at.isoformat() if consent.requested_at else None,
+        "granted_at": consent.granted_at.isoformat() if consent.granted_at else None,
+        "revoked_at": consent.revoked_at.isoformat() if consent.revoked_at else None,
+        "tx_hash": consent.tx_hash,
+    }
 
 
 @router.post("/revoke-access")
@@ -250,6 +309,53 @@ async def revoke_access(
     return {"message": "Consent revoked successfully. Bank access has been terminated."}
 
 
+
+@router.get("/request-detail/{consent_id}")
+async def get_request_detail(
+    consent_id: str,
+    current_user: User = Depends(require_bank),
+    db: Session = Depends(get_db),
+):
+    """Get full user details for a specific consent record owned by this bank."""
+    consent = db.query(ConsentRecord).filter(
+        ConsentRecord.id == consent_id,
+        ConsentRecord.bank_id == current_user.id,
+    ).first()
+    if not consent:
+        raise HTTPException(status_code=404, detail="Consent record not found")
+
+    u = db.query(User).filter(User.id == consent.user_id).first()
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    kyc = db.query(KYCRecord).filter(KYCRecord.user_id == u.id).first()
+
+    return {
+        "consent_id": consent.id,
+        "status": consent.status.value,
+        "requested_at": consent.requested_at.isoformat() if consent.requested_at else None,
+        "granted_at": consent.granted_at.isoformat() if consent.granted_at else None,
+        "bank_decision": consent.bank_decision,
+        "rejection_reason": consent.rejection_reason,
+        "decided_at": consent.decided_at.isoformat() if consent.decided_at else None,
+        "doc_request_message": consent.doc_request_message,
+        "doc_request_at": consent.doc_request_at.isoformat() if consent.doc_request_at else None,
+        "user": {
+            "full_name": u.full_name or u.email,
+            "email": u.email,
+            "wallet_address": u.wallet_address,
+        },
+        "kyc": {
+            "has_kyc": kyc is not None,
+            "is_verified": kyc.is_verified if kyc else False,
+            "doc_type": kyc.doc_type if kyc else None,
+            "ipfs_cid": kyc.ipfs_cid if kyc else None,
+            "liveness_score": kyc.liveness_score if kyc else None,
+            "liveness_verified": kyc.liveness_verified if kyc else False,
+            "uploaded_at": kyc.uploaded_at.isoformat() if kyc and kyc.uploaded_at else None,
+        }
+    }
+
 @router.get("/pending")
 async def get_pending_requests(
     current_user: User = Depends(require_user),
@@ -266,10 +372,52 @@ async def get_pending_requests(
         bank = db.query(User).filter(User.id == r.bank_id).first()
         result.append({
             "consent_id": r.id,
+            "bank_id": bank.id if bank else None,
             "bank_name": bank.full_name if bank else "Unknown",
             "bank_email": bank.email if bank else "Unknown",
+            "bank_wallet_address": bank.wallet_address if bank else None,
             "requested_at": r.requested_at,
+            "bank_decision": r.bank_decision,
+            "rejection_reason": r.rejection_reason,
+            "doc_request_message": r.doc_request_message,
         })
+    return result
+
+
+@router.get("/my-consents")
+async def get_my_consents(
+    current_user: User = Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    """
+    User-facing: ALL consent records for the current user (any status),
+    enriched with bank decision fields. Powers the 'Bank Updates' tab.
+    """
+    records = db.query(ConsentRecord).filter(
+        ConsentRecord.user_id == current_user.id,
+    ).order_by(ConsentRecord.requested_at.desc()).all()
+
+    result = []
+    for r in records:
+        bank = db.query(User).filter(User.id == r.bank_id).first()
+        result.append({
+            "consent_id": r.id,
+            "status": r.status.value,
+            "bank_id": bank.id if bank else None,
+            "bank_name": bank.full_name if bank else "Unknown",
+            "bank_email": bank.email if bank else "Unknown",
+            "requested_at": r.requested_at.isoformat() if r.requested_at else None,
+            "granted_at": r.granted_at.isoformat() if r.granted_at else None,
+            "revoked_at": r.revoked_at.isoformat() if r.revoked_at else None,
+            "bank_decision": r.bank_decision,
+            "rejection_reason": r.rejection_reason,
+            "decided_at": r.decided_at.isoformat() if r.decided_at else None,
+            "doc_request_message": r.doc_request_message,
+            "doc_request_at": r.doc_request_at.isoformat() if r.doc_request_at else None,
+        })
+    return result
+
+
 @router.get("/granted-list")
 async def get_granted_accesses(
     current_user: User = Depends(require_bank),
@@ -293,6 +441,30 @@ async def get_granted_accesses(
             })
     return result
 
+
+@router.get("/sent-requests")
+async def get_sent_requests(
+    current_user: User = Depends(require_bank),
+    db: Session = Depends(get_db),
+):
+    """List all access requests sent by this bank (pending + all statuses)."""
+    consents = db.query(ConsentRecord).filter(
+        ConsentRecord.bank_id == current_user.id,
+    ).order_by(ConsentRecord.requested_at.desc()).all()
+
+    result = []
+    for c in consents:
+        u = db.query(User).filter(User.id == c.user_id).first()
+        if u:
+            result.append({
+                "consent_id": c.id,
+                "user_wallet_address": u.wallet_address,
+                "user_full_name": u.full_name or u.email,
+                "status": c.status.value,
+                "requested_at": c.requested_at.isoformat() if c.requested_at else None,
+                "granted_at": c.granted_at.isoformat() if c.granted_at else None,
+            })
+    return result
 
 @router.get("/view/{user_wallet_address}")
 async def view_user_kyc(
@@ -336,7 +508,7 @@ async def view_user_kyc(
         id=str(uuid.uuid4()),
         actor_id=current_user.id,
         target_user_id=target_user.id,
-        event_type=AuditEventType.access_history,
+        event_type=AuditEventType.document_accessed,
         ip_address=request.client.host if request.client else None,
         details=f"Bank '{current_user.email}' accessed decrypted KYC data",
     ))
@@ -348,10 +520,9 @@ async def view_user_kyc(
         "full_name": target_user.full_name,
         "email": target_user.email,
         "wallet_address": target_user.wallet_address,
-        "kyc_status": kyc.status,
-        "id_type": kyc.id_type,
-        "id_number": kyc.id_number,
+        "kyc_status": "VERIFIED" if kyc.is_verified else "PENDING",
+        "id_type": kyc.doc_type,
         "liveness_score": kyc.liveness_score,
-        "last_verified": kyc.updated_at,
+        "last_verified": kyc.uploaded_at,
         "document_cid": kyc.ipfs_cid,
     }

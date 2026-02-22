@@ -8,6 +8,7 @@ GET  /auth/me        — get current user profile
 """
 
 import uuid
+from typing import List
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session

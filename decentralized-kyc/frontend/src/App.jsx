@@ -13,7 +13,7 @@ import ConsentApproval from './components/ConsentApproval';
 import AccessHistory from './components/AccessHistory';
 import BankPortal from './components/BankPortal';
 import Dashboard from './components/Dashboard';
-import LivenessCheck from './components/LivenessCheck';
+import BankUpdates from './components/BankUpdates';
 import Marketplace from './components/Marketplace';
 
 // ── ErrorBoundary ─────────────────────────────────────────────────────────────
@@ -55,8 +55,8 @@ const NAV = {
         { id: 'dashboard', icon: '⬡', label: 'Dashboard' },
         { id: 'marketplace', icon: '🏪', label: 'Marketplace' },
         { id: 'upload', icon: '📄', label: 'Upload KYC' },
-        { id: 'liveness', icon: '📸', label: 'Liveness Check' },
         { id: 'consent', icon: '🔓', label: 'Consent Requests' },
+        { id: 'updates', icon: '🔔', label: 'Bank Updates' },
         { id: 'history', icon: '📋', label: 'Access History' },
     ],
     bank: [
@@ -97,9 +97,9 @@ export default function App() {
         console.log(`[App] Rendering page: ${effectivePage} for role: ${role}`);
         try {
             switch (effectivePage) {
-                case 'upload': return <ErrorBoundary><KYCUpload onSuccess={() => setPage('liveness')} /></ErrorBoundary>;
-                case 'liveness': return <ErrorBoundary><LivenessCheck onComplete={() => setPage('dashboard')} /></ErrorBoundary>;
+                case 'upload': return <ErrorBoundary><KYCUpload onSuccess={() => setPage('dashboard')} /></ErrorBoundary>;
                 case 'consent': return <ErrorBoundary><ConsentApproval /></ErrorBoundary>;
+                case 'updates': return <ErrorBoundary><BankUpdates /></ErrorBoundary>;
                 case 'history': return <ErrorBoundary><AccessHistory /></ErrorBoundary>;
                 case 'portal': return <ErrorBoundary><BankPortal /></ErrorBoundary>;
                 case 'marketplace': return <ErrorBoundary><Marketplace /></ErrorBoundary>;

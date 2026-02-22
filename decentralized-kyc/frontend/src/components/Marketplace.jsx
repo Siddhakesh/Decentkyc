@@ -6,6 +6,7 @@ export default function Marketplace() {
     const [banks, setBanks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [requesting, setRequesting] = useState(null);
+    const [connected, setConnected] = useState(new Set()); // track which banks we've signalled
 
     useEffect(() => {
         const fetchBanks = async () => {
@@ -23,25 +24,21 @@ export default function Marketplace() {
     }, []);
 
     const handleConnect = async (bank) => {
-        if (!bank.wallet_address) {
-            return toast.error("This institution has not linked a wallet yet.");
-        }
+        if (connected.has(bank.id)) return; // already signalled
 
         setRequesting(bank.id);
         try {
-            await consentService.requestAccess({
-                user_wallet_address: bank.wallet_address // In this direction, the user initiates
-            });
-            // Note: Our current backend logic is designed for Banks to request users.
-            // If the user initiates, we might need a slightly different flow or just
-            // tell them the bank will be notified. For now, we'll stick to the bank-initiated
-            // flow but show the directory as "Ready to Connect".
-            toast.success(`Request sent to ${bank.full_name}! 🏦`);
+            await consentService.signalInterest(bank.id);
+            toast.success(`Connection signal sent to ${bank.full_name}! 🏦\nYou'll be notified once they respond.`);
+            setConnected(prev => new Set([...prev, bank.id]));
         } catch (err) {
-            // If the user initiates, and there's no pending request from the bank yet,
-            // we could either create one or just log the intent.
-            // For this version, we'll inform the user how to proceed.
-            toast.success(`Connection signal sent to ${bank.full_name}. They will initiate the verification request shortly.`);
+            const detail = err.response?.data?.detail || '';
+            if (err.response?.status === 409 || detail.toLowerCase().includes('already')) {
+                toast('Already connected with this institution.', { icon: '🔗' });
+                setConnected(prev => new Set([...prev, bank.id]));
+            } else {
+                toast.error(detail || 'Failed to send connection signal');
+            }
         } finally {
             setRequesting(null);
         }
@@ -104,9 +101,10 @@ export default function Marketplace() {
                             <button
                                 className="btn btn-primary btn-full"
                                 onClick={() => handleConnect(bank)}
-                                disabled={requesting === bank.id}
+                                disabled={requesting === bank.id || connected.has(bank.id)}
+                                style={connected.has(bank.id) ? { background: 'rgba(16,185,129,0.3)', borderColor: '#10b981', color: '#10b981', cursor: 'default' } : {}}
                             >
-                                {requesting === bank.id ? 'Signalling...' : 'Connect Identity'}
+                                {requesting === bank.id ? 'Connecting...' : connected.has(bank.id) ? '✓ Signal Sent' : 'Connect Identity'}
                             </button>
                         </div>
                     ))}

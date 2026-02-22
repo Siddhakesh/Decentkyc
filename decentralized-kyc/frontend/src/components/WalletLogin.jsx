@@ -157,7 +157,7 @@ export default function WalletLogin({ onSuccess }) {
                         <input
                             className="input"
                             type="email"
-                            placeholder="name@company.com"
+                            placeholder={form.role === 'bank' ? "name@company.com" : "name@example.com"}
                             required
                             value={form.email}
                             onChange={e => setForm({ ...form, email: e.target.value })}

@@ -51,9 +51,14 @@ export const authService = {
 };
 
 export const kycService = {
-    upload: (formData) => api.post('/kyc/upload', formData), // Let Axios set the boundary
+    upload: (formData) => api.post('/kyc/upload', formData),
     getStatus: () => api.get('/kyc/status'),
     checkLiveness: (imageB64) => api.post('/kyc/liveness', { image_b64: imageB64 }),
+    verifyKyc: (consentId) => api.post(`/kyc/verify/${consentId}`),
+    rejectKyc: (consentId, reason) => api.post(`/kyc/reject/${consentId}`, null, { params: { reason } }),
+    viewDocument: (consentId) => api.get(`/kyc/view-document/${consentId}`),
+    requestMoreDocs: (consentId, message) => api.post(`/kyc/request-more-docs/${consentId}`, null, { params: { message } }),
+    identifyDocument: () => api.get('/kyc/identify'),
 };
 
 export const consentService = {
@@ -61,8 +66,12 @@ export const consentService = {
     grantAccess: (data) => api.post('/consent/grant-access', data),
     revokeAccess: (data) => api.post('/consent/revoke-access', data),
     getPending: () => api.get('/consent/pending'),
+    getMyConsents: () => api.get('/consent/my-consents'),
     getGrantedList: () => api.get('/consent/granted-list'),
     viewKycData: (address) => api.get(`/consent/view/${address}`),
+    getSentRequests: () => api.get('/consent/sent-requests'),
+    signalInterest: (bankId) => api.post('/consent/signal-interest', { bank_id: bankId }),
+    getRequestDetail: (consentId) => api.get(`/consent/request-detail/${consentId}`),
 };
 
 export const auditService = {

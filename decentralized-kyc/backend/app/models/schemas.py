@@ -30,7 +30,7 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=8, max_length=128)
     full_name: Optional[str] = Field(None, max_length=200)
     role: UserRole = UserRole.user
-    wallet_address: Optional[str] = Field(None, pattern=r"^0x([a-fA-F0-9]{40}|DEMO_.*)$")
+    wallet_address: Optional[str] = Field(None, pattern=r"^0x.*$")
     description: Optional[str] = Field(None, max_length=1000)
     services: Optional[str] = Field(None, max_length=500)
 
@@ -105,12 +105,12 @@ class KYCStatus(BaseModel):
 
 # ── Consent ───────────────────────────────────────────────────────────────────
 class AccessRequest(BaseModel):
-    user_wallet_address: str = Field(..., pattern=r"^0x([a-fA-F0-9]{40}|DEMO_.*)$")
+    user_wallet_address: str = Field(..., pattern=r"^0x.*$")
 
 
 class GrantConsentRequest(BaseModel):
     bank_id: str
-    bank_wallet_address: str = Field(..., pattern=r"^0x([a-fA-F0-9]{40}|DEMO_.*)$")
+    bank_wallet_address: str = Field(..., pattern=r"^0x.*$")
     # SECURITY:
     # The client signs the message  "GRANT_CONSENT:<bank_wallet>:<timestamp>"
     # using MetaMask / ethers.js.  Backend verifies this before calling the contract.
@@ -123,6 +123,10 @@ class RevokeConsentRequest(BaseModel):
     bank_wallet_address: str = Field(..., pattern=r"^0x([a-fA-F0-9]{40}|DEMO_.*)$")
     signature: str
     consent_message: str
+
+
+class SignalInterestRequest(BaseModel):
+    bank_id: str  # UUID of the bank the user wants to connect with
 
 
 class ConsentStatusOut(BaseModel):

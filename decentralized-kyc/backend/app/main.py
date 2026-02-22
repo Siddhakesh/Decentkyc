@@ -16,7 +16,8 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.core.config import get_settings
 from app.core.blockchain import blockchain_client
-from app.db.database import create_tables
+from app.db.database import create_tables, SessionLocal
+from app.db.seeds import seed_data
 
 # ── Routers ───────────────────────────────────────────────────────────────────
 from app.api.auth import router as auth_router
@@ -34,6 +35,10 @@ async def lifespan(app: FastAPI):
     print(f"[Startup] {settings.APP_NAME} v{settings.APP_VERSION}")
     create_tables()
     print("[Startup] Database tables ready")
+    
+    # ── Seed Data ─────────────────────────────────────────────────────────────
+    with SessionLocal() as db:
+        seed_data(db)
 
     if blockchain_client.is_connected():
         print(f"[Startup] Blockchain connected: {settings.BLOCKCHAIN_RPC_URL}")
@@ -98,16 +103,23 @@ app.include_router(audit_router)
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Log validation errors (422) for easier debugging."""
-    errors = exc.errors()
-    print(f"[422 Validation Error] {request.method} {request.url}")
-    for err in errors:
-        loc = " -> ".join([str(l) for l in err.get("loc", [])])
-        msg = err.get("msg")
-        print(f"  - {loc}: {msg}")
+    # Convert errors to JSON-safe format (Pydantic v2 may include non-serializable objects)
+    safe_errors = []
+    for err in exc.errors():
+        safe_errors.append({
+            "loc": [str(l) for l in err.get("loc", [])],
+            "msg": str(err.get("msg", "")),
+            "type": str(err.get("type", "")),
+        })
     
+    print(f"[422 Validation Error] {request.method} {request.url}")
+    for err in safe_errors:
+        loc = " -> ".join(err["loc"])
+        print(f"  - {loc}: {err['msg']}")
+
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": errors},
+        content={"detail": safe_errors},
     )
 
 
