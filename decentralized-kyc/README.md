@@ -1,6 +1,18 @@
 # Decentralized KYC System
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/Siddhakesh/Decentralized-kyc)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FSiddhakesh%2FDecentralized-kyc&root-directory=frontend&env=VITE_API_URL)
+
 > **Verify once. Access everywhere.** Blockchain-anchored KYC with zero-trust consent management.
+
+---
+
+## 🚀 One-Click Deployment
+
+If you want the easiest way to get this live:
+
+1. **Backend**: Click the **Deploy to Render** button above. It will automatically set up the API, database (SQLite), and 5 new environment variables.
+2. **Frontend**: Click the **Deploy with Vercel** button above. During setup, paste your Render URL into the `VITE_API_URL` field.
 
 ---
 
